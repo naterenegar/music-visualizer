@@ -2,6 +2,9 @@ import pyaudio, wave, struct, math
 import numpy as np
 import matplotlib.pyplot as plt
 import librosa.core as lc
+from pyqtgraph.Qt import QtGui, QtCore
+import pyqtgraph as pg
+
 #------------------ Useful functions ------------------#
 
 # This function generates frequencies between the minimum and maximum frequency 
@@ -82,7 +85,22 @@ def gen_kernels(min_freq, max_freq, sampling_rate, a0=25/46, Q=17, fft_length=20
 
     return s_kernels, sum_bounds, N
 
+
 #------------------ Main Code ------------------#
+
+# Set up for pyqtgraph
+app = QtGui.QApplication([])
+win = pg.GraphicsWindow(title="Constant-Q Transform of Audio")
+win.resize(1000,600)
+win.setWindowTitle('Audio Visualizer')
+
+pg.setConfigOptions(antialias=True)
+
+cqtplot = win.addPlot(title='Constant-Q Transform')
+curve = cqtplot.plot(pen='y')
+cqtplot.setRange(yRange=(0, 0.1))
+cqtplot.enableAutoRange('y', False)
+
 # Opening the audio file
 wf = wave.open("./audio/plaza.wav", "rb")
 
@@ -110,36 +128,49 @@ notes = ['C1', 'Db', 'D', 'Eb', 'E', 'F', 'Gb', 'G', 'Ab', 'A', 'Bb', 'B',
 'C3', 'Db', 'D', 'Eb', 'E', 'F', 'Gb', 'G', 'Ab', 'A', 'Bb', 'B',
 'C4', 'Db', 'D', 'Eb', 'E', 'F', 'Gb', 'G', 'Ab', 'A', 'Bb', 'B', 'C5']
 prev_bins = [1] * len(kernels)
-plt.axis([0, 50, 0, 0.5])
-while len(data) == CHUNK*4:
+
+
+def update():
+    global CHUNK, data, data_converted, kernels, bounds, N, cqt, notes, prev_bins, p, wf, curve
+
+    #while len(data) == CHUNK*4:
     stream.write(data)  
     n = 0 
+
     for i in struct.iter_unpack('%ih' % (channels), data):
         data_converted[n] = i[0]
         n += 1
+
     data_converted = [float(val) / pow(2, 15) for val in data_converted]
     data_converted = np.multiply(data_converted, hamming)
     freq = np.fft.fft(data_converted)
     freq = freq[0:int(len(freq)/2)]
+
     for k_cq in range(len(cqt)):
         cqt[k_cq] = 0
         for k in range(bounds[k_cq][0], bounds[k_cq][1]+1):
             cqt[k_cq] += freq[k] * kernels[k_cq][k]   
-    #plt.plot(np.absolute(cqt), scaley=False)
-    #plt.pause(0.00005)
-    #plt.clf()
-    print(chr(27) + "[2J")
-    for k in range(len(cqt)):
-        if cqt[k] >= prev_bins[k]:
-            print(notes[k] + ' ' + '|' * int(cqt[k]/0.001)) 
-            prev_bins[k] = cqt[k]
-        elif prev_bins[k] > 0:
-            prev_bins[k] -= 0.1
-            print(notes[k] + ' ' + '|' * int((prev_bins[k])/0.001)) 
-        else:
-            print(notes[k]) 
-   
+        cqt[k_cq] = abs(cqt[k_cq])
+
+    curve.setData(cqt)
+
+    #    print(chr(27) + "[2J")
+    #    for k in range(len(cqt)):
+    #        if cqt[k] >= prev_bins[k]:
+    #            print(notes[k] + ' ' + '|' * int(cqt[k]/0.001)) 
+    #            prev_bins[k] = cqt[k]
+    #        elif prev_bins[k] > 0:
+    #            prev_bins[k] -= 0.1
+    #            print(notes[k] + ' ' + '|' * int((prev_bins[k])/0.001)) 
+    #        else:
+    #            print(notes[k]) 
+       
     data = wf.readframes(CHUNK)
+timer = QtCore.QTimer()
+timer.timeout.connect(update)
+timer.start(1000*int(CHUNK/wf.getframerate()))
+
+QtGui.QApplication.instance().exec_()
 stream.stop_stream()
 stream.close()
 
