@@ -1,12 +1,11 @@
 import pyaudio, wave, struct, math
 import numpy as np
 import matplotlib.pyplot as plt
-import librosa.core as lc
 from pyqtgraph.Qt import QtGui, QtCore
 import pyqtgraph as pg
 
-#------------------ Useful functions ------------------#
 
+#------------------ Useful functions ------------------#
 # This function generates frequencies between the minimum and maximum frequency 
 # on a semitone scale by default (2^(1/12) spacing). 
 def gen_freqs(min_freq, max_freq, tone='semi'):
@@ -25,8 +24,10 @@ def gen_freqs(min_freq, max_freq, tone='semi'):
         curr_freq = math.pow(math.pow(2, tone_spacing), k) * min_freq
         freqs.append(curr_freq)
         k += 1 
-
+    
+    print(freqs)
     return freqs
+
 
 def hamming_window(N, a0):
     window = np.zeros(N)    
@@ -35,10 +36,6 @@ def hamming_window(N, a0):
 
     return window
 
-def print_bins(cqt, notes):
-    print(chr(27) + "[2J")
-    for k in range(len(cqt)):
-            print(notes[k] + ' ' + '|' * int(cqt[k]/0.001)) 
 
 # This function generates all of the windows for given q and frequency range
 def gen_kernels(min_freq, max_freq, sampling_rate, a0=25/46, Q=17, fft_length=2048, MINVAL=0.001):
@@ -61,14 +58,22 @@ def gen_kernels(min_freq, max_freq, sampling_rate, a0=25/46, Q=17, fft_length=20
     t_kernels = [None] * len(N)
     s_kernels = [None] * len(N)
     sum_bounds = [None] * len(N)
+
     # These loops generate temporal kernels and take FFT's of them to generate spectral kernels
     for k_cq in range(len(N)):
+
+        # This loop generates the temporal kernels by multiplying a hamming window
+        # by an exponential of the k_cq component frequency
         t_kernels[k_cq] = [0] * N_max 
         for n in range(int(N_max/2 - N[k_cq]/2), int(N_max/2 + N[k_cq]/2)):
-            t_kernels[k_cq][n] = (a0 - (1 - a0) * math.cos((2*np.pi*(n-(N_max/2 - N[k_cq]/2))/N[k_cq]))) * np.exp(2*np.pi*freqs[k_cq]*(n-N_max/2)*1j/sampling_rate) / N[k_cq] 
-
+            t_kernels[k_cq][n] = (a0 - (1 - a0) * math.cos((2*np.pi*(n-(N_max/2 - N[k_cq]/2))
+            /N[k_cq]))) * np.exp(2*np.pi*freqs[k_cq]*(n-N_max/2)*1j/sampling_rate) / N[k_cq] 
+           
         t_kernels[k_cq] = np.real(t_kernels[k_cq])
         s_kernels[k_cq] = [0] * fft_length
+
+        # This piece of code samples the temporal kernels to the desired length of the fft
+        # I believe this is causing the transform to behave incorrectly
         delta_n = int(N_max/fft_length)
         for k in range(fft_length):
             s_kernels[k_cq][k] = t_kernels[k_cq][k*delta_n]
@@ -84,6 +89,7 @@ def gen_kernels(min_freq, max_freq, sampling_rate, a0=25/46, Q=17, fft_length=20
         sum_bounds[k_cq] = (min(non_zero), max(non_zero) )
 
     return s_kernels, sum_bounds, N
+
 
 
 #------------------ Main Code ------------------#
@@ -102,7 +108,7 @@ cqtplot.setRange(yRange=(0, 0.1))
 cqtplot.enableAutoRange('y', False)
 
 # Opening the audio file
-wf = wave.open("./audio/plaza.wav", "rb")
+wf = wave.open("./audio/middleC.wav", "rb")
 
 # Making a pyaudio object
 p = pyaudio.PyAudio()   
@@ -114,58 +120,38 @@ stream = p.open(format=p.get_format_from_width(wf.getsampwidth()),
                 rate=wf.getframerate(),
                 output=True)
 
-# Read in the initial data as bytes and generate the window function
+# Read in the initial chunk of data, and make an array for the float representatin of it
 CHUNK = 1024 
-#BINS = 8 
-a0 = 25.0/46.0
-hamming = hamming_window(CHUNK, a0)
-data = wf.readframes(CHUNK)
-data_converted = np.zeros(CHUNK) 
-kernels, bounds, N = gen_kernels(8.175, 123.5, wf.getframerate(), fft_length=CHUNK)
+bytes_data = wf.readframes(CHUNK)
+float_data = np.zeros(CHUNK) 
+kernels, bounds, N = gen_kernels(130.81278, 523, wf.getframerate(), fft_length=CHUNK)
 cqt = [0] * len(kernels)
-notes = ['C1', 'Db', 'D', 'Eb', 'E', 'F', 'Gb', 'G', 'Ab', 'A', 'Bb', 'B',
-'C2', 'Db', 'D', 'Eb', 'E', 'F', 'Gb', 'G', 'Ab', 'A', 'Bb', 'B',
-'C3', 'Db', 'D', 'Eb', 'E', 'F', 'Gb', 'G', 'Ab', 'A', 'Bb', 'B',
-'C4', 'Db', 'D', 'Eb', 'E', 'F', 'Gb', 'G', 'Ab', 'A', 'Bb', 'B', 'C5']
 prev_bins = [1] * len(kernels)
 
 
 def update():
-    global CHUNK, data, data_converted, kernels, bounds, N, cqt, notes, prev_bins, p, wf, curve
+    global CHUNK, bytes_data, float_data, kernels, bounds, N, cqt, notes, prev_bins, p, wf, curve
 
-    #while len(data) == CHUNK*4:
-    stream.write(data)  
+    stream.write(bytes_data)  
     n = 0 
 
-    for i in struct.iter_unpack('%ih' % (channels), data):
-        data_converted[n] = i[0]
+    for i in struct.iter_unpack('%ih' % (channels), bytes_data):
+        float_data[n] = i[0]
         n += 1
 
-    data_converted = [float(val) / pow(2, 15) for val in data_converted]
-    data_converted = np.multiply(data_converted, hamming)
-    freq = np.fft.fft(data_converted)
+    float_data = [float(val) / pow(2, 15) for val in float_data]
+    freq = np.fft.fft(float_data)
     freq = freq[0:int(len(freq)/2)]
 
     for k_cq in range(len(cqt)):
         cqt[k_cq] = 0
         for k in range(bounds[k_cq][0], bounds[k_cq][1]+1):
             cqt[k_cq] += freq[k] * kernels[k_cq][k]   
-        cqt[k_cq] = abs(cqt[k_cq])
+        cqt[k_cq] = np.abs(cqt[k_cq])
 
     curve.setData(cqt)
+    bytes_data = wf.readframes(CHUNK)
 
-    #    print(chr(27) + "[2J")
-    #    for k in range(len(cqt)):
-    #        if cqt[k] >= prev_bins[k]:
-    #            print(notes[k] + ' ' + '|' * int(cqt[k]/0.001)) 
-    #            prev_bins[k] = cqt[k]
-    #        elif prev_bins[k] > 0:
-    #            prev_bins[k] -= 0.1
-    #            print(notes[k] + ' ' + '|' * int((prev_bins[k])/0.001)) 
-    #        else:
-    #            print(notes[k]) 
-       
-    data = wf.readframes(CHUNK)
 timer = QtCore.QTimer()
 timer.timeout.connect(update)
 timer.start(1000*int(CHUNK/wf.getframerate()))
