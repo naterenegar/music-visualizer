@@ -1,6 +1,8 @@
 import numpy as np
 import math
 from midinotes import midinotes
+import matplotlib.pyplot as plt
+
 
 # This transform is implemented as specified in "An efficient algorithm for 
 # the calculation of a constant Q transform" (Brown 1992)
@@ -35,17 +37,17 @@ def hamming_window(N, a0):
     return window
 
 
-# This function generates all of the windows for given q and frequency range
-def gen_kernels(min_freq, max_freq, sampling_rate, a0=25/46, Q=17, fft_length=2048, MINVAL=0.001):
-    freqs = gen_freqs(min_freq, max_freq) 
+# This function generates all of the windows for given sampling rate and midinote range
+def gen_kernels(midi_low, midi_high, sampling_rate, a0=25/46, Q=17, fft_length=2048, MINVAL=0.001):
 
-    # Bound min and max frequencies
-    if max_freq > 8000:
-        max_freq = 8000
-        print("gen_kernels: max_freq was greater than 8000 Hz. Setting to 8000 Hz")
-    if min_freq < 8:
-        print("gen_kernels: min_freq was less than 8 Hz. Setting to 8 Hz")
+    if type(midi_low) != int or type(midi_high) != int:
+        raise Exception('midi_low and midi_high must be integers in the range 0-167')
+    elif midi_low >= midi_high:
+        raise Exception('midi_low cannot be greater than or equal to midi_high: {} is not less than {}'.format(midi_low, midi_high)) 
+    elif midi_low < 0 or midi_high < 0 or midi_low > 167 or midi_high > 167:
+        raise Exception('Acceptable midinotes are in the range 0-167. You entered range: {}-{}'.format(midi_low, midi_high))
 
+    freqs = midinotes[midi_low:midi_high+1]
 
     # Generate window lengths
     N = [None] * len(freqs)  
