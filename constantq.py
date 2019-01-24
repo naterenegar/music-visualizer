@@ -38,6 +38,9 @@ def hamming_window(N, a0):
 
 
 # This function generates all of the windows for given sampling rate and midinote range
+# Manual control of FFT length is not recommended: The minimum length is bounded by the formula 
+# sampling rate * Q / mininum_frequency.  The default fft_length allows a minimum frequency (in most cases)
+# of 44100 * 17 / 1024 ~= 732
 def gen_kernels(midi_low, midi_high, sampling_rate, a0=25/46, Q=17, fft_length=2048, MINVAL=0.001):
 
     if type(midi_low) != int or type(midi_high) != int:
@@ -53,6 +56,8 @@ def gen_kernels(midi_low, midi_high, sampling_rate, a0=25/46, Q=17, fft_length=2
     N = [None] * len(freqs)  
     for k_cq in range(len(N)):
         N[k_cq] = int(sampling_rate * Q / freqs[k_cq])
+
+    print(N)
     
     N_max = N[0]
     t_kernels = [None] * len(N)
@@ -72,19 +77,8 @@ def gen_kernels(midi_low, midi_high, sampling_rate, a0=25/46, Q=17, fft_length=2
         t_kernels[k_cq] = np.real(t_kernels[k_cq])
         s_kernels[k_cq] = [0] * fft_length
 
-        # This piece of code samples the temporal kernels to the desired length of the fft
-        # I believe this is causing the transform to behave incorrectly
-        if N[k_cq] > 1024:
-            delta_n = int(N_max/fft_length)
-            for k in range(fft_length):
-                s_kernels[k_cq][k] = t_kernels[k_cq][k*delta_n]
-        else:
-                s_kernels[k_cq] = np.fft.fft(t_kernels[k_cq])
-        s_kernels[k_cq] = np.fft.fft(s_kernels[k_cq])
+        s_kernels[k_cq] = np.fft.fft(t_kernels[k_cq])
         s_kernels[k_cq] = s_kernels[k_cq][0:int(len(s_kernels[k_cq])/2)]
-
-#        plt.plot(abs(s_kernels[k_cq]))
-#        plt.show()
 
         non_zero = []
         for i in range(len(s_kernels[k_cq])):

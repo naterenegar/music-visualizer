@@ -20,7 +20,7 @@ cqtplot.setRange(yRange=(0, 0.1))
 cqtplot.enableAutoRange('y', False)
 
 # Opening the audio file
-wf = wave.open("./audio/middleC.wav", "rb")
+wf = wave.open("./audio/spirited_away.wav", "rb")
 
 # Making a pyaudio object
 p = pyaudio.PyAudio()   
@@ -33,10 +33,10 @@ stream = p.open(format=p.get_format_from_width(wf.getsampwidth()),
                 output=True)
 
 # Read in the initial chunk of data, and make an array for the float representatin of it
-CHUNK = 1024 
+CHUNK = 2048 
 bytes_data = wf.readframes(CHUNK)
 float_data = np.zeros(CHUNK) 
-kernels, bounds, N = cq.gen_kernels(12, 48, wf.getframerate(), fft_length=CHUNK)
+kernels, bounds, N = cq.gen_kernels(66, 107, wf.getframerate(), fft_length=CHUNK)
 cqt = [0] * len(kernels)
 prev_bins = [0] * len(kernels) # 2000 is an arbitrary number, perhaps use sys.maxint in the future?
 x_vals = [i for i in range((len(kernels) + 1))]
@@ -60,7 +60,6 @@ def update():
     float_data *= hamming
     data_fft = np.fft.fft(float_data)
 
-    curve.setData(y=np.abs(data_fft), x=fft_x_vals)
     data_fft = data_fft[0:int(len(data_fft)/2)]
 
     for k_cq in range(len(cqt)):
@@ -70,7 +69,7 @@ def update():
         cqt[k_cq] = np.abs(cqt[k_cq])
 
         if cqt[k_cq] < prev_bins[k_cq]:
-            prev_bins[k_cq] = 0.95 * prev_bins[k_cq]
+            prev_bins[k_cq] = 0.90 * prev_bins[k_cq]
         else:
             prev_bins[k_cq] = cqt[k_cq]
 
@@ -79,7 +78,7 @@ def update():
         first_transform = False 
 
     stream.write(bytes_data)
-#    curve.setData(y=prev_bins, x=x_vals)
+    curve.setData(y=prev_bins, x=x_vals)
     bytes_data = wf.readframes(CHUNK)
 
 timer = QtCore.QTimer()
