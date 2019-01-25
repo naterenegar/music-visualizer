@@ -5,12 +5,11 @@ from pyqtgraph.Qt import QtGui, QtCore
 import pyqtgraph as pg
 import constantq as cq
 
-
 # Set up for pyqtgraph
 app = QtGui.QApplication([])
 win = pg.GraphicsWindow(title="Constant-Q Transform of Audio")
 win.resize(1000,600)
-win.setWindowTitle('Audio Visualizer')
+win.setWindowTitle('Music Visualizer')
 
 pg.setConfigOptions(antialias=True)
 
@@ -20,7 +19,7 @@ cqtplot.setRange(yRange=(0, 0.1))
 cqtplot.enableAutoRange('y', False)
 
 # Opening the audio file
-wf = wave.open("./audio/spirited_away.wav", "rb")
+wf = wave.open("./audio/plaza.wav", "rb")
 
 # Making a pyaudio object
 p = pyaudio.PyAudio()   
@@ -33,10 +32,10 @@ stream = p.open(format=p.get_format_from_width(wf.getsampwidth()),
                 output=True)
 
 # Read in the initial chunk of data, and make an array for the float representatin of it
-CHUNK = 2048 
+CHUNK = 4096 
 bytes_data = wf.readframes(CHUNK)
 float_data = np.zeros(CHUNK) 
-kernels, bounds, N = cq.gen_kernels(66, 107, wf.getframerate(), fft_length=CHUNK)
+kernels, bounds, N = cq.gen_kernels(54, 107, wf.getframerate(), fft_length=CHUNK)
 cqt = [0] * len(kernels)
 prev_bins = [0] * len(kernels) # 2000 is an arbitrary number, perhaps use sys.maxint in the future?
 x_vals = [i for i in range((len(kernels) + 1))]
@@ -44,7 +43,6 @@ fft_x_vals = [i for i in range(CHUNK+1)]
 hamming = cq.hamming_window(CHUNK, 25/46)
 
 first_transform = True # This will mark the first set of data we transform.  This is used for the slow falling effect
-
 
 def update():
     global CHUNK, bytes_data, float_data, kernels, bounds, N, cqt, notes, prev_bins, p, wf, curve, first_transform

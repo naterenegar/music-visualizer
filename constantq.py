@@ -41,8 +41,7 @@ def hamming_window(N, a0):
 # Manual control of FFT length is not recommended: The minimum length is bounded by the formula 
 # sampling rate * Q / mininum_frequency.  The default fft_length allows a minimum frequency (in most cases)
 # of 44100 * 17 / 1024 ~= 732
-def gen_kernels(midi_low, midi_high, sampling_rate, a0=25/46, Q=17, fft_length=2048, MINVAL=0.001):
-
+def gen_kernels(midi_low, midi_high, sampling_rate, a0=25/46, Q=17, fft_length=4096, MINVAL=0.001):
     if type(midi_low) != int or type(midi_high) != int:
         raise Exception('midi_low and midi_high must be integers in the range 0-167')
     elif midi_low >= midi_high:
