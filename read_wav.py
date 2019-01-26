@@ -16,11 +16,11 @@ pg.setConfigOptions(antialias=True)
 
 cqtplot = win.addPlot(title='Constant-Q Transform')
 curve = cqtplot.plot(shadowPen='g', fillLevel=0, fillBrush=.5, stepMode=True)
-cqtplot.setRange(yRange=(0, 0.1))
+cqtplot.setRange(yRange=(0, 100))
 cqtplot.enableAutoRange('y', False)
 
 # Opening the audio file
-wf = wave.open("./audio/spirited_away.wav", "rb")
+wf = wave.open("./audio/plaza.wav", "rb")
 
 # Making a pyaudio object
 p = pyaudio.PyAudio()   
@@ -50,10 +50,7 @@ hamming = cq.hamming_window(CHUNK, 25/46)
 
 first_transform = True # This will mark the first set of data we transform.  This is used for the slow falling effect
 
-
-# counter for tracking which cqt's to do
-counter = 1 
-data_cumulator = []
+data_cumulator = [0] * 16384
 
 # empty lists for different length fft's
 data_fft = [0] * 1024
@@ -78,47 +75,20 @@ def update():
 
     # Here we normalize the float data to a 0-1 range then append the data to the cumulator
     float_data = [float(val) / pow(2, 15) for val in float_data]
-    data_cumulator += float_data
 
-    if counter % 16 == 0:
-        sixteen_fft = np.fft.fft(data_cumulator)  
-        sixteen_fft = sixteen_fft[0:len(sixteen_fft/2)] 
-        eight_fft = np.fft.fft(data_cumulator[-8192:16384])
-        eight_fft = eight_fft[0:len(eight_fft/2)]
-        four_fft = np.fft.fft(data_cumulator[-4096:16384])
-        four_fft = four_fft[0:len(four_fft/2)]
-        two_fft = np.fft.fft(data_cumulator[-2048:16384])
-        two_fft = two_fft[0:len(two_fft/2)]
-        data_fft = np.fft.fft(data_cumulator[-1024:16384])
-        data_fft = data_fft[0:len(data_fft/2)]
-        data_cumulator = []
-        counter = 0 # will immediately have 1 added to it
-    elif counter % 8 == 0:
-        eight_fft = np.fft.fft(data_cumulator)
-        eight_fft = eight_fft[0:len(eight_fft/2)]
-        four_fft = np.fft.fft(data_cumulator[-4096:8192])
-        four_fft = four_fft[0:len(four_fft/2)]
-        two_fft = np.fft.fft(data_cumulator[-2048:8192])
-        two_fft = two_fft[0:len(two_fft/2)]
-        data_fft = np.fft.fft(data_cumulator[-1024:8192])
-        data_fft = data_fft[0:len(data_fft/2)]      
-    elif counter % 4 == 0:
-        four_fft = np.fft.fft(data_cumulator[-4096:counter*1024])
-        four_fft = four_fft[0:len(four_fft/2)]
-        two_fft = np.fft.fft(data_cumulator[-2048:counter*1024])
-        two_fft = two_fft[0:len(two_fft/2)]
-        data_fft = np.fft.fft(data_cumulator[-1024:counter*1024])
-        data_fft = data_fft[0:len(data_fft/2)]      
-    elif counter % 2 == 0:
-        two_fft = np.fft.fft(data_cumulator[-2048:counter*1024])
-        two_fft = two_fft[0:len(two_fft/2)]
-        data_fft = np.fft.fft(data_cumulator[-1024:counter*1024])
-        data_fft = data_fft[0:len(data_fft/2)]      
-    else:
-        data_fft = np.fft.fft(data_cumulator[-1024:counter*1024])
-        data_fft = data_fft[0:len(data_fft/2)]
+    data_cumulator[0:15360] = data_cumulator[1024:16384].copy()
+    data_cumulator[15360:16384] = float_data
 
-    counter += 1
+    sixteen_fft = np.fft.fft(data_cumulator)  
+    sixteen_fft = sixteen_fft[0:len(sixteen_fft/2)] 
+    eight_fft = np.fft.fft(data_cumulator[-8192:16384])
+    eight_fft = eight_fft[0:len(eight_fft/2)]
+    four_fft = np.fft.fft(data_cumulator[-4096:16384])
+    four_fft = four_fft[0:len(four_fft/2)]
+    two_fft = np.fft.fft(data_cumulator[-2048:16384])
+    two_fft = two_fft[0:len(two_fft/2)]
+    data_fft = np.fft.fft(data_cumulator[-1024:16384])
+    data_fft = data_fft[0:len(data_fft/2)]
 
     fft_done = time.time()
 
@@ -128,7 +98,7 @@ def update():
         if 30 <= k_cq+30 <= 41:
             for k in range(bounds16[k_cq][0], bounds16[k_cq][1]+1):
                 cqt[k_cq] += sixteen_fft[k] * kernels16[k_cq][k]
-            cqt[k_cq] = np.abs(cqt[k_cq])
+            cqt[k_cq] = np.abs(cqt[k_cq]) 
         elif 42 <= k_cq+30 <= 53:
             for k in range(bounds8[k_cq-12][0], bounds8[k_cq-12][1]+1):
                 cqt[k_cq] += eight_fft[k] * kernels8[k_cq-12][k]

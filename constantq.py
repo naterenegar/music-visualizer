@@ -56,7 +56,7 @@ def gen_kernels(midi_low, midi_high, sampling_rate, a0=25/46, Q=17, fft_length=1
     N = [None] * len(freqs)  
     for k_cq in range(len(N)):
         N[k_cq] = int(sampling_rate * Q / freqs[k_cq])
-        
+
     N_max = N[0]
     t_kernels = [None] * len(N)
     s_kernels = [None] * len(N)
