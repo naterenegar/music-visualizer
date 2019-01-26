@@ -3,7 +3,6 @@ import math
 from midinotes import midinotes
 import matplotlib.pyplot as plt
 
-
 # This transform is implemented as specified in "An efficient algorithm for 
 # the calculation of a constant Q transform" (Brown 1992)
 
@@ -36,12 +35,14 @@ def hamming_window(N, a0):
 
     return window
 
-
 # This function generates all of the windows for given sampling rate and midinote range
 # Manual control of FFT length is not recommended: The minimum length is bounded by the formula 
 # sampling rate * Q / mininum_frequency.  The default fft_length allows a minimum frequency (in most cases)
 # of 44100 * 17 / 1024 ~= 732
-def gen_kernels(midi_low, midi_high, sampling_rate, a0=25/46, Q=17, fft_length=4096, MINVAL=0.001):
+
+# In the future, I may want the frequency range to be adjustable on the fly. We can make this possible in real time
+# by computing kernels for ALL of the midinotes when a Constant-Q object is initialized.
+def gen_kernels(midi_low, midi_high, sampling_rate, a0=25/46, Q=17, fft_length=1024, MINVAL=0.001):
     if type(midi_low) != int or type(midi_high) != int:
         raise Exception('midi_low and midi_high must be integers in the range 0-167')
     elif midi_low >= midi_high:
@@ -55,9 +56,7 @@ def gen_kernels(midi_low, midi_high, sampling_rate, a0=25/46, Q=17, fft_length=4
     N = [None] * len(freqs)  
     for k_cq in range(len(N)):
         N[k_cq] = int(sampling_rate * Q / freqs[k_cq])
-
-    print(N)
-    
+        
     N_max = N[0]
     t_kernels = [None] * len(N)
     s_kernels = [None] * len(N)
@@ -76,7 +75,7 @@ def gen_kernels(midi_low, midi_high, sampling_rate, a0=25/46, Q=17, fft_length=4
         t_kernels[k_cq] = np.real(t_kernels[k_cq])
         s_kernels[k_cq] = [0] * fft_length
 
-        s_kernels[k_cq] = np.fft.fft(t_kernels[k_cq])
+        s_kernels[k_cq] = np.conj(np.fft.fft(t_kernels[k_cq]))
         s_kernels[k_cq] = s_kernels[k_cq][0:int(len(s_kernels[k_cq])/2)]
 
         non_zero = []
