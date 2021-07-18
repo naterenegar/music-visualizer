@@ -15,12 +15,12 @@ win.setWindowTitle('Music Visualizer')
 pg.setConfigOptions(antialias=True)
 
 cqtplot = win.addPlot(title='Constant-Q Transform')
-curve = cqtplot.plot(shadowPen='g', fillLevel=0, fillBrush=.5, stepMode=True)
+curve = cqtplot.plot([0,1], [0], shadowPen='g', fillLevel=0, fillBrush=.5, stepMode='center')
 cqtplot.setRange(yRange=(0, 100))
 cqtplot.enableAutoRange('y', False)
 
 # Opening the audio file
-wf = wave.open("./audio/plaza.wav", "rb")
+wf = wave.open("./audio/spirited_away.wav", "rb")
 
 # Making a pyaudio object
 p = pyaudio.PyAudio()   
@@ -43,7 +43,7 @@ kernels8, bounds8, N8 = cq.gen_kernels(42, 53, wf.getframerate(), fft_length=819
 kernels4, bounds4, N4 = cq.gen_kernels(54, 64, wf.getframerate(), fft_length=4096)
 kernels2, bounds2, N2 = cq.gen_kernels(65, 77, wf.getframerate(), fft_length=2048)
 kernels, bounds, N = cq.gen_kernels(78, 127, wf.getframerate(), fft_length=1024)
-cqt = [0] * 98
+cqt = [0] * 98 
 prev_bins = [0] * 98 
 vals = [i for i in range(99)]
 hamming = cq.hamming_window(CHUNK, 25/46)
@@ -79,15 +79,15 @@ def update():
     data_cumulator[0:15360] = data_cumulator[1024:16384].copy()
     data_cumulator[15360:16384] = float_data
 
-    sixteen_fft = np.fft.fft(data_cumulator)  
-    sixteen_fft = sixteen_fft[0:len(sixteen_fft/2)] 
-    eight_fft = np.fft.fft(data_cumulator[-8192:16384])
+    sixteen_fft = np.fft.fft(data_cumulator) / len(data_cumulator)
+    sixteen_fft = sixteen_fft[0:len(sixteen_fft/2)]
+    eight_fft = np.fft.fft(data_cumulator[-8192:16384]) / len(eight_fft)
     eight_fft = eight_fft[0:len(eight_fft/2)]
-    four_fft = np.fft.fft(data_cumulator[-4096:16384])
+    four_fft = np.fft.fft(data_cumulator[-4096:16384]) / len(four_fft)
     four_fft = four_fft[0:len(four_fft/2)]
-    two_fft = np.fft.fft(data_cumulator[-2048:16384])
+    two_fft = np.fft.fft(data_cumulator[-2048:16384]) / len(two_fft)
     two_fft = two_fft[0:len(two_fft/2)]
-    data_fft = np.fft.fft(data_cumulator[-1024:16384])
+    data_fft = np.fft.fft(data_cumulator[-1024:16384]) / len(data_fft)
     data_fft = data_fft[0:len(data_fft/2)]
 
     fft_done = time.time()
@@ -98,23 +98,20 @@ def update():
         if 30 <= k_cq+30 <= 41:
             for k in range(bounds16[k_cq][0], bounds16[k_cq][1]+1):
                 cqt[k_cq] += sixteen_fft[k] * kernels16[k_cq][k]
-            cqt[k_cq] = np.abs(cqt[k_cq]) 
         elif 42 <= k_cq+30 <= 53:
             for k in range(bounds8[k_cq-12][0], bounds8[k_cq-12][1]+1):
                 cqt[k_cq] += eight_fft[k] * kernels8[k_cq-12][k]
-            cqt[k_cq] = np.abs(cqt[k_cq])
         elif 54 <= k_cq+30 <= 64:
             for k in range(bounds4[k_cq-24][0], bounds4[k_cq-24][1]+1):
                 cqt[k_cq] += four_fft[k] * kernels4[k_cq-24][k]
-            cqt[k_cq] = np.abs(cqt[k_cq])
         elif 65 <= k_cq+30 <= 77:
             for k in range(bounds2[k_cq-35][0], bounds2[k_cq-35][1]+1):
                 cqt[k_cq] += two_fft[k] * kernels2[k_cq-35][k]
-            cqt[k_cq] = np.abs(cqt[k_cq])
         else:
             for k in range(bounds[k_cq-48][0], bounds[k_cq-48][1]+1):
                 cqt[k_cq] += data_fft[k] * kernels[k_cq-48][k]
-            cqt[k_cq] = np.abs(cqt[k_cq])
+
+        cqt[k_cq] = np.abs(cqt[k_cq]) * 500
 
         if cqt[k_cq] < prev_bins[k_cq]:
             prev_bins[k_cq] = 0.90 * prev_bins[k_cq]

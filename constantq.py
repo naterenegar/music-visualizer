@@ -42,7 +42,7 @@ def hamming_window(N, a0):
 
 # In the future, I may want the frequency range to be adjustable on the fly. We can make this possible in real time
 # by computing kernels for ALL of the midinotes when a Constant-Q object is initialized.
-def gen_kernels(midi_low, midi_high, sampling_rate, a0=25/46, Q=17, fft_length=1024, MINVAL=0.001):
+def gen_kernels(midi_low, midi_high, sampling_rate, a0=25/46, Q=17, fft_length=1024, MINVAL=0.0005):
     if type(midi_low) != int or type(midi_high) != int:
         raise Exception('midi_low and midi_high must be integers in the range 0-167')
     elif midi_low >= midi_high:
@@ -84,6 +84,7 @@ def gen_kernels(midi_low, midi_high, sampling_rate, a0=25/46, Q=17, fft_length=1
                 s_kernels[k_cq][i] = 0
             else:
                 non_zero.append(i) 
+        # TODO: Adjust MINVAL
         sum_bounds[k_cq] = (min(non_zero), max(non_zero))
 
     return s_kernels, sum_bounds, N
