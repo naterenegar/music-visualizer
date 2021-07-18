@@ -14,13 +14,18 @@ win.setWindowTitle('Music Visualizer')
 
 pg.setConfigOptions(antialias=True)
 
-cqtplot = win.addPlot(title='Constant-Q Transform')
+num_circles = 20 
+
+cqtplot = win.addPlot(title='Constant-Q Transform', row=0, col=0)
+circleplot = win.addPlot(title='Circular Plot', row=0, col=1)
+circleplot.setRange(xRange=(-1, 1), yRange=(-1,1))
+circle_curve = circleplot.plot(symbol='o',symbolPen='g',symbolSize=200/num_circles,connect=np.zeros(num_circles))
 curve = cqtplot.plot([0,1], [0], shadowPen='g', fillLevel=0, fillBrush=.5, stepMode='center')
 cqtplot.setRange(yRange=(0, 100))
 cqtplot.enableAutoRange('y', False)
 
 # Opening the audio file
-wf = wave.open("./audio/plaza.wav", "rb")
+wf = wave.open("./audio/omega_rhythm.wav", "rb")
 # Making a pyaudio object
 p = pyaudio.PyAudio()   
 
@@ -68,12 +73,16 @@ fft4 = np.zeros(2048, dtype='complex_')
 fft8 = np.zeros(4096, dtype='complex_')
 fft16 = np.zeros(8192, dtype='complex_')
 
+counter = np.zeros(num_circles) 
+exp_circ = np.arange(num_circles, dtype='complex_') / num_circles 
+
 # We should be running the transform Fs / window_stride times per second, so
 # 44100 / 1024 ~= 43
 # If we change the stride to 1050 then we run an even 42 times per second
 def update():
     global CHUNK, data_bytes, float_data, kernels, bounds, N, cqt, notes, prev_bins, p, wf, curve, first_transform, counter, data_cumulator
     global fft1, fft2, fft4, fft8, fft16
+    global exp_circ, num_circles, counter
     start = time.time()
 
     # This loop converts the bytes data to float data we can easily work with
@@ -144,9 +153,14 @@ def update():
 
     # Now we want to take the bins and collaspe average them so that we can
     # turn them into circles  
-    n_cirlces = 5
+    bins_per_circle = int(n_bins / num_circles)
+    for i in range(num_circles-1):
+        counter[i] += np.sum(cqt[i:bins_per_circle*i])
+    counter[num_circles-1] += np.sum(cqt[i:])
+   
+    new_points = np.multiply(exp_circ, np.exp(counter * 1j / 20000))
 
-
+    circle_curve.setData(x=np.real(new_points), y=np.imag(new_points))
     stream.write(data_bytes)
     curve.setData(y=prev_bins, x=vals)
     data_displayed = time.time()

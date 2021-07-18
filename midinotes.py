@@ -20,5 +20,3 @@ for i in range(137, -1, -1):
     quarter_tones[i] = quarter_tones[i+1] / pow(2, 1/24)
 
 quarter_tones = tuple(quarter_tones)
-
-
