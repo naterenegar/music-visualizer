@@ -1,6 +1,6 @@
 import numpy as np
 import math
-from midinotes import midinotes
+from midinotes import midinotes, quarter_tones
 import matplotlib.pyplot as plt
 
 # This transform is implemented as specified in "An efficient algorithm for 
@@ -29,11 +29,13 @@ def gen_freqs(min_freq, max_freq, tone='semi'):
     return freqs
 
 def hamming_window(N, a0):
-    window = np.zeros(N)    
-    for n in range(N):
-        window[n] = a0 - (1 - a0) * math.cos((2*np.pi*n)/(N-1))
-
+    window = np.ones(N) * a0 - (1 - a0) * np.cos(2*np.pi*np.arange(N)/N)
     return window
+
+def kernel_get(N, a0):
+    window = hamming_window(N, a0)
+
+
 
 # This function generates all of the windows for given sampling rate and midinote range
 # Manual control of FFT length is not recommended: The minimum length is bounded by the formula 
@@ -42,7 +44,7 @@ def hamming_window(N, a0):
 
 # In the future, I may want the frequency range to be adjustable on the fly. We can make this possible in real time
 # by computing kernels for ALL of the midinotes when a Constant-Q object is initialized.
-def gen_kernels(midi_low, midi_high, sampling_rate, a0=25/46, Q=17, fft_length=1024, MINVAL=0.0005):
+def gen_kernels(midi_low, midi_high, sampling_rate, a0=25/46, Q=34, fft_length=1024, MINVAL=0.0005):
     if type(midi_low) != int or type(midi_high) != int:
         raise Exception('midi_low and midi_high must be integers in the range 0-167')
     elif midi_low >= midi_high:
@@ -50,12 +52,21 @@ def gen_kernels(midi_low, midi_high, sampling_rate, a0=25/46, Q=17, fft_length=1
     elif midi_low < 0 or midi_high < 0 or midi_low > 167 or midi_high > 167:
         raise Exception('Acceptable midinotes are in the range 0-167. You entered range: {}-{}'.format(midi_low, midi_high))
 
-    freqs = midinotes[midi_low:midi_high+1]
+    if Q != 17 and Q != 34:
+        raise Exception('Q must be either 17 for semitones or 34 for quarter tones')
 
+    if Q == 17:
+        freqs = midinotes[midi_low:midi_high+1]
+    elif Q == 34:
+        freqs = quarter_tones[midi_low*2:midi_high*2+1]
+
+    print(freqs)
     # Generate window lengths
     N = [None] * len(freqs)  
     for k_cq in range(len(N)):
-        N[k_cq] = int(sampling_rate * Q / freqs[k_cq])
+        N[k_cq] = int(round(sampling_rate * Q / freqs[k_cq]))
+
+    print(N)
 
     N_max = N[0]
     t_kernels = [None] * len(N)
@@ -65,13 +76,17 @@ def gen_kernels(midi_low, midi_high, sampling_rate, a0=25/46, Q=17, fft_length=1
     # These loops generate temporal kernels and take FFT's of them to generate spectral kernels
     for k_cq in range(len(N)):
 
-        # This loop generates the temporal kernels by multiplying a hamming window
-        # by an exponential of the k_cq component frequency
+        # This loop center aligns the kernels
         t_kernels[k_cq] = [0] * N_max 
         for n in range(int(N_max/2 - N[k_cq]/2), int(N_max/2 + N[k_cq]/2)):
             t_kernels[k_cq][n] = (a0 - (1 - a0) * math.cos((2*np.pi*(n-(N_max/2 - N[k_cq]/2))
-            /N[k_cq]))) * np.exp(2*np.pi*freqs[k_cq]*(n-N_max/2)*1j/sampling_rate) / N[k_cq] 
-          
+            / N[k_cq]))) * np.exp(2*np.pi*freqs[k_cq]*(n-N_max/2)*1j/sampling_rate)
+
+        # This loop right aligns the kernels
+#        for n in range(N_max - N[k_cq], N_max):
+#            t_kernels[k_cq][n] = (a0 - (1 - a0) * math.cos((2*np.pi*(n-N_max)
+#            / N[k_cq]))) * np.exp(2*np.pi*freqs[k_cq]*(n-N_max/2)*1j/sampling_rate) / N[k_cq]
+        
         t_kernels[k_cq] = np.real(t_kernels[k_cq])
         s_kernels[k_cq] = [0] * fft_length
 
@@ -86,5 +101,5 @@ def gen_kernels(midi_low, midi_high, sampling_rate, a0=25/46, Q=17, fft_length=1
                 non_zero.append(i) 
         # TODO: Adjust MINVAL
         sum_bounds[k_cq] = (min(non_zero), max(non_zero))
-
+    print(sum_bounds)
     return s_kernels, sum_bounds, N
