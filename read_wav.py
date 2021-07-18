@@ -14,7 +14,7 @@ win.setWindowTitle('Music Visualizer')
 
 pg.setConfigOptions(antialias=True)
 
-num_circles = 20 
+num_circles = 30 
 
 cqtplot = win.addPlot(title='Constant-Q Transform', row=0, col=0)
 circleplot = win.addPlot(title='Circular Plot', row=0, col=1)
@@ -25,7 +25,7 @@ cqtplot.setRange(yRange=(0, 100))
 cqtplot.enableAutoRange('y', False)
 
 # Opening the audio file
-wf = wave.open("./audio/omega_rhythm.wav", "rb")
+wf = wave.open("./audio/note76.wav", "rb")
 # Making a pyaudio object
 p = pyaudio.PyAudio()   
 
@@ -155,10 +155,10 @@ def update():
     # turn them into circles  
     bins_per_circle = int(n_bins / num_circles)
     for i in range(num_circles-1):
-        counter[i] += np.sum(cqt[i:bins_per_circle*i])
-    counter[num_circles-1] += np.sum(cqt[i:])
+        counter[i] += np.sum(cqt[i*bins_per_circle:bins_per_circle*(i+1)])
+    counter[num_circles-1] += np.sum(cqt[i*bins_per_circle:])
    
-    new_points = np.multiply(exp_circ, np.exp(counter * 1j / 20000))
+    new_points = np.multiply(exp_circ, np.exp(counter * 1j / 5000))
 
     circle_curve.setData(x=np.real(new_points), y=np.imag(new_points))
     stream.write(data_bytes)
