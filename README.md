@@ -11,4 +11,5 @@ A sliding window of `16384` samples moves `1024` samples at a time, and the CQT 
 - Only `*.wav` files are supported currently, should find a way to support `*.mp3`
 - Add functionality to change songs, pause, play, skip (i.e. turn this into a music player that shows the spectrum)
 - Add on the fly changes to the CQT (e.g. change the frequency bounds)
+- Rewrite the transform code in C++ for easy portability to a microcontroller (I want to make this into hardware at some point!)
 
