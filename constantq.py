@@ -6,18 +6,13 @@ import matplotlib.pyplot as plt
 # This transform is implemented as specified in "An efficient algorithm for 
 # the calculation of a constant Q transform" (Brown 1992)
 def hamming_window(N, shift, a0):
-    window = np.ones(N) * a0 - (1 - a0) * np.cos(2*np.pi*(np.arange(N)-shift)/N)
+    window = np.ones(int(N)) * a0 - (1 - a0) * np.cos(2*np.pi*(np.arange(N)-shift)/N)
     return window
 
 def kernel_get(N, a0):
     window = hamming_window(N, a0)
 
 
-
-# This function generates all of the windows for given sampling rate and midinote range
-# Manual control of FFT length is not recommended: The minimum length is bounded by the formula 
-# sampling rate * Q / mininum_frequency.  The default fft_length allows a minimum frequency (in most cases)
-# of 44100 * 17 / 1024 ~= 732
 
 # In the future, I may want the frequency range to be adjustable on the fly. We can make this possible in real time
 # by computing kernels for ALL of the midinotes when a Constant-Q object is initialized.
@@ -37,18 +32,15 @@ def gen_kernels(midi_low, midi_high, sampling_rate, a0=25/46, Q=34, fft_length=1
     elif Q == 34:
         freqs = quarter_tones[midi_low*2:midi_high*2+1]
 
-    print(freqs)
     # Generate window lengths
     N = np.zeros(len(freqs))
     for k_cq in range(len(N)):
         N[k_cq] = int(round(sampling_rate * Q / freqs[k_cq]))
 
-    print(N)
-
     N_max = int(N[0])
     N_max = fft_length
-    t_kernels = np.zeros((len(N), N_max))
-    s_kernels = np.zeros((len(N), int(fft_length / 2)))
+    t_kernels = np.zeros((len(N), N_max), dtype='complex_')
+    s_kernels = np.zeros((len(N), int(fft_length / 2)), dtype='complex_')
     sum_bounds = [0] * len(N)
 
     # These loops generate temporal kernels and take FFT's of them to generate spectral kernels
@@ -58,7 +50,7 @@ def gen_kernels(midi_low, midi_high, sampling_rate, a0=25/46, Q=34, fft_length=1
         lower = int(N_max/2 - N[k_cq]/2)
         upper = int(N_max/2 + N[k_cq]/2) 
         idxs = np.arange(lower, upper)
-        t_kernels[k_cq][lower:upper] = np.multiply(hamming_window(N[k_cq], lower, a0), np.exp(2*np.pi*freqs[k_cq]*(idxs - int(N_max/2))*1j/sampling_rate))
+        t_kernels[k_cq][lower:upper] = np.multiply(hamming_window(N[k_cq], lower, a0), np.exp(2*np.pi*freqs[k_cq]*(idxs - int(N_max/2))*1j/sampling_rate)) / N[k_cq]
         s_kernels[k_cq] = np.conj(np.fft.fft(np.real(t_kernels[k_cq])))[0:int(len(t_kernels[k_cq])/2)]
 
         non_zero = []
@@ -69,6 +61,6 @@ def gen_kernels(midi_low, midi_high, sampling_rate, a0=25/46, Q=34, fft_length=1
                 non_zero.append(i) 
 
         # TODO: Adjust MINVAL
-        sum_bounds[k_cq] = (min(non_zero), max(non_zero))
+        sum_bounds[k_cq] = (min(non_zero), max(non_zero)+1)
 
     return s_kernels, sum_bounds, N

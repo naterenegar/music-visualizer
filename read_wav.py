@@ -20,7 +20,7 @@ cqtplot.setRange(yRange=(0, 100))
 cqtplot.enableAutoRange('y', False)
 
 # Opening the audio file
-wf = wave.open("./audio/spirited_away.wav", "rb")
+wf = wave.open("./audio/plaza.wav", "rb")
 # Making a pyaudio object
 p = pyaudio.PyAudio()   
 
@@ -53,20 +53,20 @@ for i in range(1, len(n_bins_list)):
     n_bins_acc[i] = n_bins_acc[i-1] + n_bins_list[i]
 
 n_bins = n_bins_acc[4]
-cqt = [0] * n_bins 
-prev_bins = [0] * n_bins 
+cqt = np.zeros(n_bins)
+prev_bins = np.zeros(n_bins)
 vals = [i for i in range(n_bins + 1)]
 
 first_transform = True # This will mark the first set of data we transform.  This is used for the slow falling effect
 
-data_cumulator = [0] * 16384
+data_cumulator = np.zeros(16384)
 
 # empty lists for different length fft's
-fft1 = [0] * 1024
-fft2 = [0] * 2048
-fft4 = [0] * 4096
-fft8 = [0] * 8192
-fft16 = [0] * 16384
+fft1 = np.zeros(512, dtype='complex_')
+fft2 = np.zeros(1024, dtype='complex_')
+fft4 = np.zeros(2048, dtype='complex_')
+fft8 = np.zeros(4096, dtype='complex_')
+fft16 = np.zeros(8192, dtype='complex_')
 
 # We should be running the transform Fs / window_stride times per second, so
 # 44100 / 1024 ~= 43
@@ -88,55 +88,51 @@ def update():
     float_data = [float(val) / pow(2, 15) for val in float_data]
 
     # Shift over the window
-    data_cumulator[0:15360] = data_cumulator[1024:16384].copy()
+    data_cumulator[0:15360] = np.copy(data_cumulator[1024:16384])
     data_cumulator[15360:16384] = float_data
 
     # Calculate the new FFTs, with their last sample on the end of the window
-    fft16 = np.fft.fft(data_cumulator)
-    fft16 = fft16[0:len(fft16/2)]
-    fft8 = np.fft.fft(data_cumulator[-8192:16384])
-    fft8 = fft8[0:len(fft8/2)]
-    fft4 = np.fft.fft(data_cumulator[-4096:16384])
-    fft4 = fft4[0:len(fft4/2)]
-    fft2 = np.fft.fft(data_cumulator[-2048:16384])
-    fft2 = fft2[0:len(fft2/2)]
-    fft1 = np.fft.fft(data_cumulator[-1024:16384])
-    fft1 = fft1[0:len(fft1/2)]
-
+    fft1 = np.fft.fft(data_cumulator[-1024:16384])[0:512]
+    fft2 = np.fft.fft(data_cumulator[-2048:16384])[0:1024]
+    fft4 = np.fft.fft(data_cumulator[-4096:16384])[0:2048]
+    fft8 = np.fft.fft(data_cumulator[-8192:16384])[0:4096]
+    fft16 = np.fft.fft(data_cumulator)[0:8192]
     fft_done = time.time()
 
     for k_cq in range(n_bins):
         cqt[k_cq] = 0
         if 0 <= k_cq < n_bins_acc[0]:
-            for k in range(bounds16[k_cq][0], bounds16[k_cq][1]+1):
-                cqt[k_cq] += fft16[k] * kernels16[k_cq][k]
-#            cqt[k_cq] /= len(kernels16[k_cq])
+            lower = bounds16[k_cq][0]
+            upper = bounds16[k_cq][1]
+            cqt[k_cq] = np.abs(np.sum(np.multiply(fft16[lower:upper], kernels16[k_cq][lower:upper])))
 
         elif n_bins_acc[0] <= k_cq < n_bins_acc[1]:
-            for k in range(bounds8[k_cq-n_bins_acc[0]][0], bounds8[k_cq-n_bins_acc[0]][1]+1):
-                cqt[k_cq] += fft8[k] * kernels8[k_cq-n_bins_acc[0]][k]
-#            cqt[k_cq] /= len(kernels8[k_cq-n_bins_acc[0]])
+            k_cq_tmp = k_cq - n_bins_acc[0]
+            lower = bounds8[k_cq_tmp][0]
+            upper = bounds8[k_cq_tmp][1]
+            cqt[k_cq] = np.abs(np.sum(np.multiply(fft8[lower:upper], kernels8[k_cq_tmp][lower:upper])))
 
         elif n_bins_acc[1] <= k_cq < n_bins_acc[2]:
-            for k in range(bounds4[k_cq-n_bins_acc[1]][0], bounds4[k_cq-n_bins_acc[1]][1]+1):
-                cqt[k_cq] += fft4[k] * kernels4[k_cq-n_bins_acc[1]][k]
-#            cqt[k_cq] /= len(kernels4[k_cq-n_bins_acc[1]])
+            k_cq_tmp = k_cq - n_bins_acc[1]
+            lower = bounds4[k_cq_tmp][0]
+            upper = bounds4[k_cq_tmp][1]
+            cqt[k_cq] = np.abs(np.sum(np.multiply(fft4[lower:upper], kernels4[k_cq_tmp][lower:upper])))
 
         elif n_bins_acc[2] <= k_cq < n_bins_acc[3]:
-            for k in range(bounds2[k_cq-n_bins_acc[2]][0], bounds2[k_cq-n_bins_acc[2]][1]+1):
-                cqt[k_cq] += fft2[k] * kernels2[k_cq-n_bins_acc[2]][k]
-#            cqt[k_cq] /= len(kernels2[k_cq-n_bins_acc[2]])
+            k_cq_tmp = k_cq - n_bins_acc[2]
+            lower = bounds2[k_cq_tmp][0]
+            upper = bounds2[k_cq_tmp][1]
+            cqt[k_cq] = np.abs(np.sum(np.multiply(fft2[lower:upper], kernels2[k_cq_tmp][lower:upper])))
 
         else:
-            for k in range(bounds[k_cq-n_bins_acc[3]][0], bounds[k_cq-n_bins_acc[3]][1]+1):
-                cqt[k_cq] += fft1[k] * kernels[k_cq-n_bins_acc[3]][k]
-#            cqt[k_cq] /= len(kernels[k_cq-n_bins_acc[3]])
-
-        cqt[k_cq] = np.abs(cqt[k_cq])
+            k_cq_tmp = k_cq - n_bins_acc[3]
+            lower = bounds[k_cq_tmp][0]
+            upper = bounds[k_cq_tmp][1]
+            cqt[k_cq] = np.abs(np.sum(np.multiply(fft1[lower:upper], kernels[k_cq_tmp][lower:upper])))
 
         # This is really just a first order difference equation y[n] = 0.9 * y[n-1]
-        if cqt[k_cq] < 0.9 * prev_bins[k_cq]:
-            prev_bins[k_cq] = 0.90 * prev_bins[k_cq]
+        if cqt[k_cq] < 0.95 * prev_bins[k_cq]:
+            prev_bins[k_cq] = 0.95 * prev_bins[k_cq]
         else:
             prev_bins[k_cq] = cqt[k_cq]
 
@@ -146,16 +142,21 @@ def update():
         prev_bins = cqt.copy()
         first_transform = False 
 
+    # Now we want to take the bins and collaspe average them so that we can
+    # turn them into circles  
+    n_cirlces = 5
+
+
     stream.write(data_bytes)
     curve.setData(y=prev_bins, x=vals)
     data_displayed = time.time()
     data_bytes = wf.readframes(CHUNK)
 
-    print("Load time: " + str(data_loaded-start))
-    print("FFT Time: " + str(fft_done - data_loaded))
-    print("CQT Time: " + str(cqt_done - fft_done))
-    print("Display Time: " + str(data_displayed - cqt_done))
-    print("Total Time: " + str(data_displayed - start))
+#    print("Load time: " + str(data_loaded-start))
+#    print("FFT Time: " + str(fft_done - data_loaded))
+#    print("CQT Time: " + str(cqt_done - fft_done))
+#    print("Display Time: " + str(data_displayed - cqt_done))
+#    print("Total Time: " + str(data_displayed - start))
 
 timer = QtCore.QTimer()
 timer.timeout.connect(update)
