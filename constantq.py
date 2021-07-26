@@ -6,7 +6,8 @@ import matplotlib.pyplot as plt
 # This transform is implemented as specified in "An efficient algorithm for 
 # the calculation of a constant Q transform" (Brown 1992)
 def hamming_window(N, shift, a0):
-    window = np.ones(int(N)) * a0 - (1 - a0) * np.cos(2*np.pi*(np.arange(N)-shift)/N)
+    #window = (a0 - (1 - a0) * np.cos(2*np.pi*(np.arange(int(N))-shift)/N)) / N
+    window = (a0 - (1 - a0) * np.cos(2*np.pi*(np.arange(int(N)))/N)) / N
     return window
 
 def kernel_get(N, a0):
@@ -49,9 +50,17 @@ def gen_kernels(midi_low, midi_high, sampling_rate, a0=25/46, Q=34, fft_length=1
         # This loop center aligns the kernels
         lower = int(N_max/2 - N[k_cq]/2)
         upper = int(N_max/2 + N[k_cq]/2) 
-        idxs = np.arange(lower, upper)
-        t_kernels[k_cq][lower:upper] = np.multiply(hamming_window(N[k_cq], lower, a0), np.exp(2*np.pi*freqs[k_cq]*(idxs - int(N_max/2))*1j/sampling_rate)) / N[k_cq]
+        idxs = np.arange(N[k_cq])
+        t_kernels[k_cq][lower:upper] = np.multiply(hamming_window(N[k_cq], lower, a0), 
+                                                    np.exp(2*np.pi*freqs[k_cq]*(idxs - int(N_max/2))*1j/sampling_rate))
         s_kernels[k_cq] = np.conj(np.fft.fft(np.real(t_kernels[k_cq])))[0:int(len(t_kernels[k_cq])/2)]
+
+#        plt.plot(hamming_window(N[k_cq], lower, a0))
+#        plt.show()
+#        plt.plot(t_kernels[k_cq])
+#        plt.show()
+#        plt.plot(np.abs(s_kernels[k_cq]))
+#        plt.show()
 
         non_zero = []
         for i in range(len(s_kernels[k_cq])):
