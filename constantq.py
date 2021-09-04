@@ -85,10 +85,12 @@ class cqt(object):
         
         last_center_idx = first_center_idx + atom_shift_samples * (num_atoms_per_fft - 1)
         fft_shift = atom_shift_samples * num_atoms_per_fft
-        fft_overlap = (fft_len - fft_shift) * 100 / fft_len
 
         kernel = np.zeros((fft_len, self.bins * num_atoms_per_fft), dtype=np.complex)
         
+        self.fft_len = fft_len
+        self.fft_overlap = (fft_len - fft_shift)
+        self.fft_shift = fft_shift
 
         for k in range(self.bins):
             fk = oct_low * pow(2, k/self.bins) 
@@ -109,7 +111,35 @@ class cqt(object):
                 kernel[:,base+i] = kernel[:,base+i] / fft_len
 
         # TODO: Any further normalization 
-        self.kernel = kernel
+        self.kernel = np.conjugate(kernel).T # complex conjugate for parseval's
+
+    # Does a transform on a block of length x. 
+    def do_transform(self, x):
+        fft_len = self.fft_len
+        fft_overlap = self.fft_overlap
+        fft_shift = self.fft_shift
+        
+        for i in range(self.num_octaves): 
+            # Pack our input into columns
+            if len(x) >= fft_len:
+                cols = ceil((len(x) - fft_len) / fft_shift) + 1
+            else:
+                cols = 1
+            xx = np.zeros((fft_len, cols))
+            idx = 0
+            for j in range(cols):
+                if idx + fft_len > len(x):
+                    leftover = idx + fft_len - len(x)
+                    x = np.append(x, np.zeros(leftover))
+               
+                xx[:,j] = x[idx:idx+fft_len]
+                idx = idx + fft_shift
+
+            dft = np.fft.fft(xx)
+            cqt_oct = np.dot(self.kernel,dft)
+            print(cqt_oct.shape)
+            x = filtfilt(self.filtB, self.filtA, x)
+            x = x[1::2]
 
 
 # This transform is implemented as specified in "An efficient algorithm for 
